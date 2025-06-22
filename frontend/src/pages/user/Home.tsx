@@ -1,39 +1,48 @@
-import { Link } from 'react-router-dom';
-import ThemeToggle from '../components/ThemeToggle'; // Assuming this exists
-import { useState } from 'react'; // For dropdown and potential search input
+import { Link, useNavigate } from 'react-router-dom';
+// import ThemeToggle from '../components/ThemeToggle'; // Assuming this exists
+// import { useState } from 'react'; // For dropdown and potential search input
+// import { useAppSelector } from '../hooks/useAppSelector';
+// import { logout } from '../features/auth/authSlice';
+// import { useAppDispatch } from '../hooks/useAppDispatch';
+import Header from '../../components/user/Header';
 
 // Dummy Data for demonstration
 const categories = [
-  { name: 'Cleaning', icon: (
-    <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-  ) },
-  { name: 'Repairs', icon: (
-    <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-  ) },
-  { name: 'Beauty', icon: (
-    <svg className="w-8 h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-  ) },
-  { name: 'Tutoring', icon: (
-    <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.747 0-3.332.477-4.5 1.253"></path></svg>
-  ) },
-  // Add more categories as needed
+  {
+    name: 'Cleaning',
+    image: 'https://tse4.mm.bing.net/th?id=OIP.Mvcr0QDsGXOx29cSBfXd6AHaE7&pid=Api&P=0&h=180?text=cleaning',
+  },
+  {
+    name: 'Repairs',
+    image: 'https://via.placeholder.com/64?text=Repairs',
+  },
+  {
+    name: 'Beauty',
+    image: 'https://via.placeholder.com/64?text=Beauty',
+  },
+  {
+    name: 'Tutoring',
+    image: 'https://via.placeholder.com/64?text=Tutoring',
+  },
+  // Add more with real image URLs
 ];
 
+
 const popularServices = [
-  { id: 1, name: 'House Cleaning', price: '$50/hr', imageUrl: 'https://via.placeholder.com/150/f0f9ff/6b7280?text=Cleaning' },
+  { id: 1, name: 'House Cleaning', price: '$50/hr', imageUrl: 'https://tse4.mm.bing.net/th?id=OIP.Mvcr0QDsGXOx29cSBfXd6AHaE7&pid=Api&P=0&h=180?text=Cleaning' },
   { id: 2, name: 'Dog Walking', price: '$20/hr', imageUrl: 'https://via.placeholder.com/150/f0f9ff/6b7280?text=Dog+Walk' },
   { id: 3, name: 'Piano Lessons', price: '$60/hr', imageUrl: 'https://via.placeholder.com/150/f0f9ff/6b7280?text=Piano' },
   { id: 4, name: 'Handyman', price: '$75/hr', imageUrl: 'https://via.placeholder.com/150/f0f9ff/6b7280?text=Handyman' },
 ];
 
 const trendingServices = [
-    { id: 5, name: 'Gardening Cleanup', price: '$45/hr', imageUrl: 'https://via.placeholder.com/150/f0f9ff/6b7280?text=Gardening' },
+    { id: 5, name: 'Gardening Cleanup', price: '$45/hr', imageUrl: 'https://tse4.mm.bing.net/th?id=OIP.Mvcr0QDsGXOx29cSBfXd6AHaE7&pid=Api&P=0&h=180?text=Gardening' },
     { id: 6, name: 'Personal Training', price: '$80/hr', imageUrl: 'https://via.placeholder.com/150/f0f9ff/6b7280?text=Training' },
     { id: 7, name: 'Car Detailing', price: '$100', imageUrl: 'https://via.placeholder.com/150/f0f9ff/6b7280?text=Car+Detail' },
 ];
 
 const featuredProviders = [
-  { id: 1, name: 'Olivia R.', rating: 5, imageUrl: 'https://via.placeholder.com/64/a78bfa/ffffff?text=OR' },
+  { id: 1, name: 'Olivia R.', rating: 5, imageUrl: 'https://tse4.mm.bing.net/th?id=OIP.Mvcr0QDsGXOx29cSBfXd6AHaE7&pid=Api&P=0&h=180?text=OR' },
   { id: 2, name: 'Marcus P.', rating: 4.8, imageUrl: 'https://via.placeholder.com/64/34d399/ffffff?text=MP' },
   { id: 3, name: 'Emily C.', rating: 4.9, imageUrl: 'https://via.placeholder.com/64/facc15/ffffff?text=EC' },
   { id: 4, name: 'Jonathan S.', rating: 5, imageUrl: 'https://via.placeholder.com/64/fb7185/ffffff?text=JS' },
@@ -83,68 +92,13 @@ const StarRating = ({ rating }: { rating: number }) => {
 
 
 const Home = () => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const { user, logout } = {} // useAuth(); // Assuming you'd get user from context if logged in
+
+
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
       {/* Header/Navigation */}
-      <header className="fixed w-full top-0 z-50 bg-white dark:bg-gray-800 shadow-sm">
-        <nav className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-8">
-            <Link to="/" className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              QuickMate
-            </Link>
-            <div className="hidden md:flex space-x-6">
-              <Link to="/" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium">Home</Link>
-              <Link to="/services" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium">Services</Link>
-              <Link to="/providers" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium">Providers</Link>
-              <Link to="/about" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium">About Us</Link>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <ThemeToggle />
-            {/* Conditional rendering for Login/Register or User Dropdown */}
-            {/* Replace `user` with actual user state from useAuth() */}
-            {false ? ( // Placeholder: Replace `false` with `user` or `isLoggedIn` check
-              <div className="relative">
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none"
-                >
-                  <img src="https://via.placeholder.com/32" alt="User Avatar" className="w-8 h-8 rounded-full" />
-                  <span>{user?.name || 'My Account'}</span>
-                  <svg className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                  </svg>
-                </button>
-                {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg py-1 z-10">
-                    <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Profile</Link>
-                    <Link to="/dashboard" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Dashboard</Link>
-                    {user?.role === 'Admin' && <Link to="/admin" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Admin Panel</Link>}
-                    <button onClick={logout} className="w-full text-left block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">Logout</button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-x-2 hidden sm:block"> {/* Hide on small screens to avoid clutter */}
-                <Link to="/login">
-                  <button className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium px-3 py-2 rounded-md">
-                    Login
-                  </button>
-                </Link>
-                <Link to="/register">
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200">
-                    Register
-                  </button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </nav>
-      </header>
+      <Header />
 
       <main className="pt-20"> {/* Padding top to account for fixed header */}
         {/* Hero Section */}
@@ -185,7 +139,7 @@ const Home = () => {
             {categories.map((category) => (
               <Link to={`/category/${category.name.toLowerCase().replace(/\s/g, '-')}`} key={category.name} className="flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition duration-200 transform hover:-translate-y-1">
                 <div className="p-4 bg-blue-100 dark:bg-blue-900 rounded-full mb-4">
-                  {category.icon}
+                  <img src={category.image} alt="" className='rounded-full' />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 text-center">{category.name}</h3>
               </Link>

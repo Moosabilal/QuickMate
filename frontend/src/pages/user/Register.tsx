@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { authService } from '../services/authService';
+import { authService } from '../../services/authService';
 import { useNavigate, Link } from 'react-router-dom'; // Import Link for navigation
-import ThemeToggle from '../components/ThemeToggle';
+import ThemeToggle from '../../components/ThemeToggle';
+import { useAppDispatch } from '../../hooks/useAppDispatch';
+import { login } from '../../features/auth/authSlice';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -11,8 +12,8 @@ const Register = () => {
   const [role, setRole] = useState('Customer'); // Default to Customer
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false); // Add loading state
-  const { login } = useAuth();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +21,7 @@ const Register = () => {
     setError(''); // Clear previous errors
     try {
       const { user, token } = await authService.register(name, email, password, role);
-      login(user, token);
+      dispatch(login({user, token}))
       // Navigate based on role after successful registration
       navigate(user.role === 'Admin' ? '/admin' : '/');
     } catch (err: any) {

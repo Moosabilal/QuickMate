@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { useNavigate, Link } from 'react-router-dom'; // Added Link
 import ThemeToggle from '../components/ThemeToggle';
+import { useAppDispatch } from '../hooks/useAppDispatch';
+import { login } from '../features/auth/authSlice';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false); // Added loading state
-  const { login } = useAuth();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +20,7 @@ const Login = () => {
     setError(''); // Clear previous errors
     try {
       const { user, token } = await authService.login(email, password);
-      login(user, token);
+      dispatch(login({user, token}))
       navigate(user.role === 'Admin' ? '/admin' : '/');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');

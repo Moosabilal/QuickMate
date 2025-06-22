@@ -18,7 +18,7 @@ export class AuthService {
     const user = await this.userRepo.findByEmail(email);
     if (!user) throw new Error('Invalid credentials');
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password as string);
     if (!isMatch) throw new Error('Invalid credentials');
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET!, { expiresIn: '1h' });

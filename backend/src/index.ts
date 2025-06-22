@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import { rateLimiter } from './middleware/rateLimiter';
 import connectDB from './config/database';
+import path from 'path';
+import config from './config';
+import categoryRoutes from './routes/categoryRoutes'
 
 dotenv.config();
 
@@ -21,7 +23,13 @@ app.use(helmet()); // Security headers
 app.use(express.json());
 app.use(rateLimiter);
 
+// Serve static files from 'uploads' directory (where Multer saves temporarily)
+// IMPORTANT: In production, consider serving static files via Nginx/CDN or directly from Cloudinary
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/categories', categoryRoutes); // Category and Commission routes
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
