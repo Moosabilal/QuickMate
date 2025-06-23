@@ -1,22 +1,26 @@
 // src/controllers/CategoryController.ts
 import { Request, Response, NextFunction } from 'express';
 import { CategoryService } from '../services/categoryService';
-// Assuming ICategoryFormCombinedData, ICategoryInput from '../types/category' are correctly defined with boolean status
-import { ICategoryFormCombinedData, ICategoryInput } from '../types/category';
+// Assuming ICategoryInput now covers both category and subcategory (parentId included)
+// ICategoryFormCombinedData will still be used for frontend mapping for top-level categories
+import { ICategoryInput, ICategoryFormCombinedData, ICategory } from '../types/category';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 import { validationResult } from 'express-validator';
+import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 
-// Assuming AuthRequest from authMiddleware if not globally declared
 interface AuthRequest extends Request {
   user?: { id: string; role: string };
+  file?: Express.Multer.File;
 }
 
-// IMPORTANT: This type should now reflect what CategoryService methods expect for commission rule status, which is boolean.
-type CommissionRuleInputService = {
-    flatFee?: number;
-    categoryCommission?: number;
-    status?: boolean; // CHANGED: Now boolean, to match CategoryService and types/category.ts
-    removeRule?: boolean;
+// Renamed and simplified for internal controller use
+// This type should reflect what CategoryService methods expect for commission rule status (boolean).
+type CommissionRuleInputController = {
+  flatFee?: number;
+  categoryCommission?: number;
+  status?: boolean;
+  removeRule?: boolean; // Flag to indicate rule removal (e.g., commissionType 'none')
 };
 
 export class CategoryController {
@@ -28,75 +32,101 @@ export class CategoryController {
 
   /**
    * @route POST /api/categories
-   * @desc Create a new category with optional icon and commission rule.
+   * @desc Create a new category (main or sub) with optional icon. Commission applies only to main categories.
    * @access Admin
    */
-  createCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    console.log("Request body:", req.body); // Debugging line to check request body
+  createCategory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      if (req.file && fs.existsSync(req.file.path)) {
+        try {
+          await fsPromises.unlink(req.file.path);
+        } catch (fileErr) {
+          console.error("Error deleting temp file after validation error:", fileErr);
+        }
+      }
       res.status(400).json({ errors: errors.array() });
       return;
     }
 
     try {
       const iconFile = req.file;
-      let iconUrl: string | undefined;
+      let iconUrl: string | undefined | null;
 
       if (iconFile) {
         iconUrl = await uploadToCloudinary(iconFile.path);
+      } else if (req.body.iconUrl === '') { // Frontend explicitly sent empty string to clear
+        iconUrl = null;
       }
+      // If iconUrl is undefined, it means no file was uploaded and no explicit clear was requested.
 
       const {
         name,
         description,
-        status, // boolean from frontend
-        parentId,
+        status,
+        parentId, // Will be present for subcategories, null/undefined for main categories
         commissionType,
         commissionValue,
-        commissionStatus, // boolean from frontend
-      }: ICategoryFormCombinedData = req.body;
+        commissionStatus,
+      } = req.body;
 
+      // Construct base category input
       const categoryInput: ICategoryInput = {
         name,
         description,
-        parentId: parentId === '' ? null : parentId,
-        status: status, // Directly use boolean
-        iconUrl,
+        status: status, // `express-validator`'s .toBoolean() should handle this
+        iconUrl: iconUrl,
+        parentId: parentId === '' ? null : (parentId || null), // Ensure null if empty string or undefined
       };
 
-      // REMOVE THIS MAPPING: const commissionStatusMappedForService = (commissionStatus ? 'Active' : 'InActive') as 'Active' | 'InActive';
-      // Commission status from frontend is already boolean, and service now expects boolean.
+      let commissionRuleInputForService: CommissionRuleInputController | undefined = undefined;
 
-      let commissionRuleInputForService: CommissionRuleInputService | undefined;
+      // Only process commission if it's a top-level category (no parentId)
+      if (!categoryInput.parentId) {
+        const parsedCommissionValue = commissionValue !== '' ? Number(commissionValue) : undefined;
 
-      if (commissionType && commissionType !== 'none' && commissionValue !== '') {
-        if (commissionType === 'percentage') {
+        if (commissionType === 'none') {
           commissionRuleInputForService = {
-            categoryCommission: Number(commissionValue),
-            status: commissionStatus, // DIRECTLY USE THE BOOLEAN 'commissionStatus' HERE
+            removeRule: true,
+            status: commissionStatus, // This status might be false if 'none' was selected
           };
-        } else if (commissionType === 'flat') {
-          commissionRuleInputForService = {
-            flatFee: Number(commissionValue),
-            status: commissionStatus, // DIRECTLY USE THE BOOLEAN 'commissionStatus' HERE
-          };
+        } else if (commissionType && parsedCommissionValue !== undefined) {
+          if (commissionType === 'percentage') {
+            commissionRuleInputForService = {
+              categoryCommission: parsedCommissionValue,
+              flatFee: undefined,
+              status: commissionStatus,
+            };
+          } else if (commissionType === 'flat') {
+            commissionRuleInputForService = {
+              flatFee: parsedCommissionValue,
+              categoryCommission: undefined,
+              status: commissionStatus,
+            };
+          }
         }
       }
 
       const { category, commissionRule } = await this.categoryService.createCategory(
         categoryInput,
-        commissionRuleInputForService
+        commissionRuleInputForService // This will be undefined for subcategories
       );
 
       res.status(201).json({
-        message: 'Category created successfully',
+        message: `${category.parentId ? 'Subcategory' : 'Category'} created successfully`,
         category,
-        commissionRule,
+        commissionRule, // Will be undefined if it's a subcategory
       });
       return;
     } catch (error: any) {
-      if (error.message.includes('Category with this name already exists')) {
+      if (req.file && fs.existsSync(req.file.path)) {
+        try {
+          await fsPromises.unlink(req.file.path);
+        } catch (fileErr) {
+          console.error("Error deleting temp file on createCategory error:", fileErr);
+        }
+      }
+      if (error.message.includes('Category with this name already exists') || error.message.includes('A subcategory with this name already exists under the specified parent')) {
         res.status(409).json({ message: error.message });
         return;
       }
@@ -106,12 +136,19 @@ export class CategoryController {
 
   /**
    * @route PUT /api/categories/:id
-   * @desc Update an existing category with optional icon and commission rule.
+   * @desc Update an existing category (main or sub) with optional icon. Commission applies only to main categories.
    * @access Admin
    */
-  updateCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  updateCategory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      if (req.file && fs.existsSync(req.file.path)) {
+        try {
+          await fsPromises.unlink(req.file.path);
+        } catch (fileErr) {
+          console.error("Error deleting temp file after validation error:", fileErr);
+        }
+      }
       res.status(400).json({ errors: errors.array() });
       return;
     }
@@ -119,75 +156,101 @@ export class CategoryController {
     try {
       const { id } = req.params;
       const iconFile = req.file;
-      let iconUrl: string | undefined = req.body.iconUrl;
+      let iconUrl: string | undefined | null;
 
       if (iconFile) {
         iconUrl = await uploadToCloudinary(iconFile.path);
       } else if (req.body.iconUrl === '') {
-        iconUrl = undefined;
+        iconUrl = null;
+        // TODO: Add logic here to delete old image from Cloudinary if category.iconUrl had a public_id.
+        // This would require fetching the existing category first to get the old iconUrl.
+      } else if (req.body.iconUrl !== undefined) {
+        iconUrl = req.body.iconUrl;
       }
 
       const {
         name,
         description,
-        status, // boolean from frontend
-        parentId,
+        status,
+        parentId, // Can be used for re-parenting if backend supports
         commissionType,
         commissionValue,
-        commissionStatus, // boolean from frontend
-      }: ICategoryFormCombinedData = req.body;
+        commissionStatus,
+      } = req.body;
 
       const updateCategoryData: Partial<ICategoryInput> = {
         name,
         description,
-        parentId: parentId === '' ? null : parentId,
-        status: status, // Directly use boolean
-        iconUrl,
+        status: status,
+        iconUrl: iconUrl,
+        parentId: parentId === '' ? null : (parentId || null), // Handle parentId for updates
       };
 
-      // REMOVE THIS MAPPING: const commissionStatusMappedForService = (commissionStatus ? 'Active' : 'InActive') as 'Active' | 'InActive';
+      let commissionRuleInputForService: CommissionRuleInputController | undefined = undefined;
 
-      let commissionRuleInputForService: CommissionRuleInputService | undefined;
+      // Determine if the category being updated IS a top-level category or being CONVERTED to one.
+      // This requires fetching the existing category first to know its current parentId state.
+      // For simplicity here, we'll assume the `parentId` in the request body accurately
+      // reflects whether it's a main category (no parentId) or subcategory (has parentId).
+      // A more robust solution might involve fetching the category first.
+      const isCurrentlyMainCategory = !parentId; // If no parentId in update request, assume it's a main category being updated
 
-      if (commissionType === 'none' || (commissionType && commissionValue === '')) {
+      if (isCurrentlyMainCategory) {
+        const parsedCommissionValue = commissionValue !== '' ? Number(commissionValue) : undefined;
+
+        if (commissionType === 'none') {
           commissionRuleInputForService = {
-              removeRule: true,
-              status: commissionStatus // DIRECTLY USE THE BOOLEAN 'commissionStatus' HERE
+            removeRule: true,
+            status: commissionStatus,
           };
-      } else if (commissionType && commissionValue !== '') {
-        if (commissionType === 'percentage') {
-          commissionRuleInputForService = {
-            categoryCommission: Number(commissionValue),
-            flatFee: undefined,
-            status: commissionStatus, // DIRECTLY USE THE BOOLEAN 'commissionStatus' HERE
-          };
-        } else if (commissionType === 'flat') {
-          commissionRuleInputForService = {
-            flatFee: Number(commissionValue),
-            categoryCommission: undefined,
-            status: commissionStatus, // DIRECTLY USE THE BOOLEAN 'commissionStatus' HERE
-          };
+        } else if (commissionType && parsedCommissionValue !== undefined) {
+          if (commissionType === 'percentage') {
+            commissionRuleInputForService = {
+              categoryCommission: parsedCommissionValue,
+              flatFee: undefined,
+              status: commissionStatus,
+            };
+          } else if (commissionType === 'flat') {
+            commissionRuleInputForService = {
+              flatFee: parsedCommissionValue,
+              categoryCommission: undefined,
+              status: commissionStatus,
+            };
+          }
         }
       }
+      // If updateCategoryData.parentId is present, commissionRuleInputForService remains undefined,
+      // and the service will ignore commission updates for subcategories.
 
       const { category, commissionRule } = await this.categoryService.updateCategory(
         id,
         updateCategoryData,
-        commissionRuleInputForService
+        commissionRuleInputForService // This will be undefined if it's a subcategory
       );
 
+      if (!category) {
+        res.status(500).json({ message: 'Category update failed: category is null.' });
+        return;
+      }
       res.status(200).json({
-        message: 'Category updated successfully',
+        message: `${category.parentId ? 'Subcategory' : 'Category'} updated successfully`,
         category,
-        commissionRule,
+        commissionRule, // Will be undefined if it's a subcategory
       });
       return;
     } catch (error: any) {
+      if (req.file && fs.existsSync(req.file.path)) {
+        try {
+          await fsPromises.unlink(req.file.path);
+        } catch (fileErr) {
+          console.error("Error deleting temp file on updateCategory error:", fileErr);
+        }
+      }
       if (error.message.includes('Category not found')) {
         res.status(404).json({ message: error.message });
         return;
       }
-      if (error.message.includes('Category with this name already exists')) {
+      if (error.message.includes('Category with this name already exists') || error.message.includes('A subcategory with this name already exists under the specified parent')) {
         res.status(409).json({ message: error.message });
         return;
       }
@@ -197,7 +260,7 @@ export class CategoryController {
 
   /**
    * @route GET /api/categories/:id
-   * @desc Get a single category by ID, formatted for frontend form.
+   * @desc Get a single category or subcategory by ID, formatted for frontend form.
    * @access Admin
    */
   getCategoryById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -205,33 +268,43 @@ export class CategoryController {
       const { id } = req.params;
       const { category, commissionRule } = await this.categoryService.getCategoryById(id);
 
-      // Transform backend data to frontend ICategoryFormCombinedData
-      const mappedCategoryForFrontend: ICategoryFormCombinedData = {
+      // Frontend ICategoryFormCombinedData is designed for the main category form
+      // Subcategory form expects a simpler object without commission.
+      // We should map based on whether it has a parentId.
+
+      // Base common properties for both category and subcategory
+      const commonData = {
         _id: category._id.toString(),
         name: category.name,
         description: category.description || '',
-        iconUrl: category.iconUrl || '',
-        status: category.status ?? false, // Handle potential undefined with nullish coalescing
+        iconUrl: category.iconUrl || null,
+        status: category.status ?? false,
         parentId: category.parentId ? category.parentId.toString() : null,
-        subCategories: [],
-        commissionType: 'none', // Default
-        commissionValue: '', // Default
-        commissionStatus: false, // Default
       };
 
-      if (commissionRule) {
-        if (commissionRule.categoryCommission !== undefined && commissionRule.categoryCommission !== null) {
-          mappedCategoryForFrontend.commissionType = 'percentage';
-          mappedCategoryForFrontend.commissionValue = commissionRule.categoryCommission;
-        } else if (commissionRule.flatFee !== undefined && commissionRule.flatFee !== null) {
-          mappedCategoryForFrontend.commissionType = 'flat';
-          mappedCategoryForFrontend.commissionValue = commissionRule.flatFee;
-        }
-        // commissionRule.status from service is now boolean, directly assign
-        mappedCategoryForFrontend.commissionStatus = commissionRule.status ?? false; // Handle potential undefined
-      }
+      if (category.parentId) { // It's a subcategory
+        // Simply return the common data as subcategories don't have commission fields
+        res.status(200).json(commonData);
+      } else { // It's a top-level category, include commission details
+        const mappedCategoryForFrontend: ICategoryFormCombinedData = {
+          ...commonData,
+          commissionType: 'none', // Default
+          commissionValue: '', // Default
+          commissionStatus: false, // Default
+        };
 
-      res.status(200).json(mappedCategoryForFrontend);
+        if (commissionRule) {
+          if (commissionRule.categoryCommission !== undefined && commissionRule.categoryCommission !== null) {
+            mappedCategoryForFrontend.commissionType = 'percentage';
+            mappedCategoryForFrontend.commissionValue = commissionRule.categoryCommission;
+          } else if (commissionRule.flatFee !== undefined && commissionRule.flatFee !== null) {
+            mappedCategoryForFrontend.commissionType = 'flat';
+            mappedCategoryForFrontend.commissionValue = commissionRule.flatFee;
+          }
+          mappedCategoryForFrontend.commissionStatus = commissionRule.status ?? false;
+        }
+        res.status(200).json(mappedCategoryForFrontend);
+      }
       return;
     } catch (error: any) {
       if (error.message.includes('Category not found')) {
@@ -244,15 +317,69 @@ export class CategoryController {
 
   /**
    * @route GET /api/categories
-   * @desc Get all categories with subcategory counts and commission details.
+   * @desc Get all top-level categories with subcategory counts OR all subcategories of a specific parent.
    * @access Admin
    */
-  getAllCategoriesWithDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getAllCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const categories = await this.categoryService.getAllCategoriesWithDetails();
-      // Assuming your service now returns `status: boolean` for categories and commission rules,
-      // no further mapping is needed here unless you want to default undefined to false explicitly.
-      res.status(200).json(categories);
+      const { parentId } = req.query; // Get parentId from query params
+
+      let categories: ICategory[] | import("../types/category").ICategoryResponse[];
+
+      if (parentId) {
+        // If parentId is provided, fetch subcategories
+        categories = await this.categoryService.getAllSubcategories(parentId.toString());
+        // For subcategories, we typically don't need commission details or subCategoryCount for the list view
+        const mappedSubcategories = (categories as import("../types/category").ICategoryResponse[]).map(cat => ({
+            _id: cat._id.toString(),
+            name: cat.name,
+            description: cat.description || '',
+            iconUrl: cat.iconUrl || '',
+            status: cat.status ?? false,
+            parentId: cat.parentId ? cat.parentId.toString() : null,
+            // No subCategoriesCount, commissionType, commissionValue, commissionStatus for subcategories list
+        }));
+        res.status(200).json(mappedSubcategories);
+
+      } else {
+        // If no parentId, fetch all top-level categories with details (including subCategoryCount and commission)
+        categories = await this.categoryService.getAllTopLevelCategoriesWithDetails(); // This method name is good for top-level
+
+        const mappedCategories = categories.map(cat => {
+          // Type guard to check if commissionRule exists
+          const hasCommissionRule = (obj: any): obj is { commissionRule: any } => 
+            obj && typeof obj === 'object' && 'commissionRule' in obj && obj.commissionRule !== undefined && obj.commissionRule !== null;
+
+          let commissionType = 'none';
+          let commissionValue = '';
+          let commissionStatus = false;
+
+          if (hasCommissionRule(cat)) {
+            if (cat.commissionRule.categoryCommission !== undefined && cat.commissionRule.categoryCommission !== null) {
+              commissionType = 'percentage';
+              commissionValue = cat.commissionRule.categoryCommission;
+            } else if (cat.commissionRule.flatFee !== undefined && cat.commissionRule.flatFee !== null) {
+              commissionType = 'flat';
+              commissionValue = cat.commissionRule.flatFee;
+            }
+            commissionStatus = cat.commissionRule.status ?? false;
+          }
+
+          return {
+            _id: cat._id.toString(),
+            name: cat.name,
+            description: cat.description || '',
+            iconUrl: cat.iconUrl || '',
+            status: cat.status ?? false,
+            parentId: cat.parentId ? cat.parentId.toString() : null, // Should be null for top-level
+            subCategoriesCount: (cat as any).subCategoryCount || 0, // Use 'as any' to access property if present
+            commissionType,
+            commissionValue,
+            commissionStatus,
+          };
+        });
+        res.status(200).json(mappedCategories);
+      }
       return;
     } catch (error: any) {
       next(error);
@@ -267,7 +394,6 @@ export class CategoryController {
   getGlobalCommission = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const globalRule = await this.categoryService.getGlobalCommissionRule();
-      // Assuming globalRule.status is already boolean from the service
       res.status(200).json(globalRule);
       return;
     } catch (error: any) {
@@ -288,8 +414,9 @@ export class CategoryController {
     }
 
     try {
-      const { globalCommission } = req.body;
+      const { globalCommission } = req.body; // globalCommission is the number directly
 
+      // Validation already done by express-validator but good to have a runtime check
       if (typeof globalCommission !== 'number' || globalCommission < 0 || globalCommission > 100) {
         res.status(400).json({ message: 'Invalid global commission value. Must be a number between 0 and 100.' });
         return;
@@ -308,7 +435,7 @@ export class CategoryController {
 
   /**
    * @route DELETE /api/categories/:id
-   * @desc Delete a category and its associated commission rule.
+   * @desc Delete a category and its associated commission rule (if it's a main category).
    * @access Admin
    */
   deleteCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

@@ -12,7 +12,7 @@ interface Category {
   _id: string;
   name: string;
   subCategoriesCount: number; // For display in the table
-  status: 'Active' | 'Inactive';
+  status: boolean; // Changed to boolean
 }
 
 interface CommissionRule {
@@ -20,23 +20,23 @@ interface CommissionRule {
   categoryName: string; // For display in the table
   commissionPercentage?: number; // Commission %
   flatFee?: number; // Flat Fee
-  status: 'Active' | 'Inactive';
+  status: boolean; // Changed to boolean
   categoryId: string; // Link to actual category
 }
 
 const dummyCategories: Category[] = [
-  { _id: 'cat1', name: 'Home Maintenance', subCategoriesCount: 5, status: 'Active' },
-  { _id: 'cat2', name: 'Pet Care', subCategoriesCount: 3, status: 'Active' },
-  { _id: 'cat3', name: 'Personal Training', subCategoriesCount: 2, status: 'Active' },
-  { _id: 'cat4', name: 'Event Planning', subCategoriesCount: 4, status: 'Inactive' },
-  { _id: 'cat5', name: 'Tutoring', subCategoriesCount: 1, status: 'Active' },
+  { _id: 'cat1', name: 'Home Maintenance', subCategoriesCount: 5, status: true },  // true for Active
+  { _id: 'cat2', name: 'Pet Care', subCategoriesCount: 3, status: true },       // true for Active
+  { _id: 'cat3', name: 'Personal Training', subCategoriesCount: 2, status: true }, // true for Active
+  { _id: 'cat4', name: 'Event Planning', subCategoriesCount: 4, status: false },   // false for Inactive
+  { _id: 'cat5', name: 'Tutoring', subCategoriesCount: 1, status: true },       // true for Active
 ];
 
 const dummyCommissionRules: CommissionRule[] = [
-  { _id: 'rule1', categoryId: 'cat1', categoryName: 'Home Maintenance', commissionPercentage: 10, flatFee: 5, status: 'Active' },
-  { _id: 'rule2', categoryId: 'cat2', categoryName: 'Pet Care', commissionPercentage: 12, flatFee: 0, status: 'Active' },
-  { _id: 'rule3', categoryId: 'cat3', categoryName: 'Personal Training', commissionPercentage: 15, flatFee: 10, status: 'Active' },
-  { _id: 'rule4', categoryId: 'cat4', categoryName: 'Event Planning', commissionPercentage: 8, flatFee: 20, status: 'Inactive' },
+  { _id: 'rule1', categoryId: 'cat1', categoryName: 'Home Maintenance', commissionPercentage: 10, flatFee: 5, status: true },  // true for Active
+  { _id: 'rule2', categoryId: 'cat2', categoryName: 'Pet Care', commissionPercentage: 12, flatFee: 0, status: true },       // true for Active
+  { _id: 'rule3', categoryId: 'cat3', categoryName: 'Personal Training', commissionPercentage: 15, flatFee: 10, status: true }, // true for Active
+  { _id: 'rule4', categoryId: 'cat4', categoryName: 'Event Planning', commissionPercentage: 8, flatFee: 20, status: false },   // false for Inactive
 ];
 
 const dummyEarningsSummary = {
@@ -58,13 +58,15 @@ const CategoryCommissionManagement = () => {
 
   const handleEditCategory = (categoryId: string) => {
     console.log('Edit Category:', categoryId);
-    navigate('/admin/categories/edit/${categoryId}')
+    navigate(`/admin/categories/edit/${categoryId}`);
     // Implement navigation or modal for editing a category
   };
 
-  const handleToggleCategoryStatus = (categoryId: string, currentStatus: 'Active' | 'Inactive') => {
-    console.log(`Toggle status for category ${categoryId} to ${currentStatus === 'Active' ? 'Inactive' : 'Active'}`);
+  // Changed currentStatus to boolean
+  const handleToggleCategoryStatus = (categoryId: string, currentStatus: boolean) => {
+    console.log(`Toggle status for category ${categoryId} to ${currentStatus ? 'Inactive' : 'Active'}`);
     // In a real app, dispatch an action to update category status in Redux and backend
+    // You'd typically find the category by ID and update its status
   };
 
   const handleEditCommissionRule = (ruleId: string) => {
@@ -72,10 +74,18 @@ const CategoryCommissionManagement = () => {
     // Implement navigation or modal for editing a commission rule
   };
 
-  const handleToggleCommissionRuleStatus = (ruleId: string, currentStatus: 'Active' | 'Inactive') => {
-    console.log(`Toggle status for commission rule ${ruleId} to ${currentStatus === 'Active' ? 'Inactive' : 'Active'}`);
+  // Changed currentStatus to boolean
+  const handleToggleCommissionRuleStatus = (ruleId: string, currentStatus: boolean) => {
+    console.log(`Toggle status for commission rule ${ruleId} to ${currentStatus ? 'Inactive' : 'Active'}`);
     // In a real app, dispatch an action to update rule status in Redux and backend
+    // You'd typically find the rule by ID and update its status
   };
+
+   // NEW: Handle View Category
+    const handleViewCategory = (categoryId: string) => {
+      console.log('View Category:', categoryId);
+        navigate(`/admin/categories/view/${categoryId}`);
+    };
 
 
   return (
@@ -113,31 +123,39 @@ const CategoryCommissionManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            category.status === 'Active'
+                            category.status // Use boolean directly
                               ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                               : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                           }`}
                         >
-                          {category.status}
+                          {category.status ? 'Active' : 'Inactive'} {/* Display 'Active' or 'Inactive' */}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleEditCategory(category._id)}
-                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-4"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleCategoryStatus(category._id, category.status)}
-                          className={`${
-                            category.status === 'Active'
-                              ? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300'
-                              : 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300'
-                          }`}
-                        >
-                          {category.status === 'Active' ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                          <button
+                            onClick={() => handleEditCategory(category._id)}
+                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleCategoryStatus(category._id, category.status)}
+                            className={`${
+                              category.status // Use boolean directly
+                                ? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300'
+                                : 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300'
+                            }`}
+                          >
+                            {category.status ? 'Deactivate' : 'Activate'} {/* Display 'Deactivate' or 'Activate' */}
+                          </button>
+                          <button
+                            onClick={() => handleViewCategory(category._id)}
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                          >
+                            View
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -146,9 +164,9 @@ const CategoryCommissionManagement = () => {
             </div>
             <button
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onClick={() => navigate('/admin/categories/new') } // Replace with modal or form logic
+              onClick={() => navigate('/admin/categories/new') }
             >
-              Add Category
+              Add New Category
             </button>
           </section>
 
@@ -163,7 +181,7 @@ const CategoryCommissionManagement = () => {
                 id="globalCommission"
                 value={globalCommissionRate}
                 onChange={(e) => setGlobalCommissionRate(Number(e.target.value))}
-                onBlur={() => console.log("Update global commission to:", globalCommissionRate)} // Trigger update on blur or with a separate button
+                onBlur={() => console.log("Update global commission to:", globalCommissionRate)}
                 className="w-24 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -192,12 +210,12 @@ const CategoryCommissionManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            rule.status === 'Active'
+                            rule.status // Use boolean directly
                               ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                               : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                           }`}
                         >
-                          {rule.status}
+                          {rule.status ? 'Active' : 'Inactive'} {/* Display 'Active' or 'Inactive' */}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -210,12 +228,12 @@ const CategoryCommissionManagement = () => {
                         <button
                           onClick={() => handleToggleCommissionRuleStatus(rule._id, rule.status)}
                           className={`${
-                            rule.status === 'Active'
+                            rule.status // Use boolean directly
                               ? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300'
                               : 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300'
                           }`}
                         >
-                          {rule.status === 'Active' ? 'Deactivate' : 'Activate'}
+                          {rule.status ? 'Deactivate' : 'Activate'} {/* Display 'Deactivate' or 'Activate' */}
                         </button>
                       </td>
                     </tr>

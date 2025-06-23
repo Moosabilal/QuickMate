@@ -12,6 +12,7 @@ export interface CategoryInput {
 }
 
 export interface Category extends CategoryInput {
+  category: any;
   _id: string; // MongoDB _id
   // Add any other fields that the backend might return after creation, e.g., createdAt, updatedAt
 }
@@ -30,19 +31,4 @@ export interface CommissionRuleInput {
 
 export interface CommissionRule extends CommissionRuleInput {
     _id: string; // MongoDB _id
-}
-
-// Combine for the data structure you showed in CategoryForm
-// This might be more of a client-side representation before sending to API
-export interface CategoryFormCombinedData {
-  _id?: string;
-  name: string;
-  description: string;
-  iconUrl?: string; // Client-side URL for preview/upload
-  status: boolean; // boolean true/false for active/inactive in frontend
-  subCategories: string[]; // List of subcategory names
-  commissionType: 'percentage' | 'flat';
-  commissionValue: number | '';
-  commissionStatus: boolean; // boolean true/false for active/inactive commission
-  // Potentially, if `parentid` is involved in 'subCategories', the backend mapping would occur.
 }

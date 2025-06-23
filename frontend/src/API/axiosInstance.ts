@@ -4,9 +4,7 @@ import config from './config'; // Assuming you have your config file here
 
 const axiosInstance = axios.create({
   baseURL: config.API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  
 });
 
 // Request Interceptor
