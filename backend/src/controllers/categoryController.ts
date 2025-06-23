@@ -76,7 +76,7 @@ export class CategoryController {
         description,
         status: status, // `express-validator`'s .toBoolean() should handle this
         iconUrl: iconUrl,
-        parentId: parentId === '' ? null : (parentId || null), // Ensure null if empty string or undefined
+        parentId: parentId === '' ? null : parentId ?? null, // Ensure null if empty string or undefined
       };
 
       let commissionRuleInputForService: CommissionRuleInputController | undefined = undefined;
@@ -267,6 +267,7 @@ export class CategoryController {
     try {
       const { id } = req.params;
       const { category, commissionRule } = await this.categoryService.getCategoryById(id);
+      const subCategories = await this.categoryService.getAllSubcategories(id);
 
       // Frontend ICategoryFormCombinedData is designed for the main category form
       // Subcategory form expects a simpler object without commission.
@@ -303,7 +304,10 @@ export class CategoryController {
           }
           mappedCategoryForFrontend.commissionStatus = commissionRule.status ?? false;
         }
-        res.status(200).json(mappedCategoryForFrontend);
+        res.status(200).json({
+          ...mappedCategoryForFrontend,
+          subCategories
+        });
       }
       return;
     } catch (error: any) {
@@ -364,6 +368,7 @@ export class CategoryController {
             }
             commissionStatus = cat.commissionRule.status ?? false;
           }
+
 
           return {
             _id: cat._id.toString(),

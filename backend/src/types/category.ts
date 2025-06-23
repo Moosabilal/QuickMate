@@ -34,6 +34,7 @@ export interface ICategoryResponse extends Omit<ICategoryInput, 'parentId'> {
     updatedAt: string; // Convert Date to string for API response
     // For GET all categories (especially top-level), we might add:
     subCategoryCount?: number;
+    subCategories?: Array<ICategoryResponse>; // ADDED: To include nested subcategories for detail pages
     // Commission rule is explicitly for top-level categories
     commissionRule?: ICommissionRuleResponse | null;
 }
@@ -42,7 +43,7 @@ export interface ICategoryResponse extends Omit<ICategoryInput, 'parentId'> {
 // Data shape for creating/updating a commission rule
 export interface ICommissionRuleInput {
     categoryId?: string | null; // string from frontend/controller, will be converted to ObjectId or null for global
-    globalCommission?: number; // Only for global rule
+    globalCommission?: number | null | undefined ; // Only for global rule
     flatFee?: number; // For category-specific flat fee
     categoryCommission?: number; // For category-specific percentage commission
     status?: boolean; // Now consistently boolean

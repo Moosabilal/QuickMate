@@ -157,13 +157,10 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ initialCategoryData }) => {
         // Capture the response from categoryService.createCategory
         // Assuming categoryService.createCategory returns an object like { message: ..., category: { _id: ... }, ... }
         const response = await categoryService.createCategory(formData);
-        console.log("Category created successfully!", response);
 
         // Check if the response contains the category object and its _id
         const newCategoryId  = response?._id;
-        console.log('New Category ID:', newCategoryId);
 
-        console.log('findsubmitaction:', submitAction);
         if (newCategoryId && submitAction === 'addSubcategory') {
           // If "Add Sub Category" button was clicked AND it's a new category
           navigate(`/admin/subcategories/new/${newCategoryId}`);

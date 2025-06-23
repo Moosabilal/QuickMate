@@ -1,19 +1,26 @@
 // src/services/CategoryService.ts
 import axiosInstance from "../API/axiosInstance";
-import { Category, CategoryInput, CommissionRule, CommissionRuleInput } from "../types/category";
+import {
+    ICategoryInput,
+    ICategoryResponse, // Use ICategoryResponse for data coming from the API
+    ICommissionRuleInput,
+    ICommissionRuleResponse, // Use ICommissionRuleResponse for data coming from the API
+} from "../types/category"; // Ensure this path is correct for your updated types
 
 const CATEGORIES_PATH = '/categories';
+const CATEGORIES_TOP_LEVEL_DETAILS_PATH = '/categories/top-level-details';
+const GLOBAL_COMMISSION_PATH = '/commission-rules/global'; // Adjust if your backend path is different, e.g., /categories/global-commission
 
 export const categoryService = {
 
     /**
      * Creates a new category or subcategory.
-     * The `formData` should include `parentId` if it's a subcategory.
+     * The `formData` should include `parentid` if it's a subcategory.
      * Commission fields should be omitted from formData if it's a subcategory.
      * @param formData The FormData object containing category/subcategory data.
-     * @returns The created Category object.
+     * @returns The created ICategoryResponse object.
      */
-    async createCategory(formData: FormData): Promise<Category> {
+    async createCategory(formData: FormData): Promise<ICategoryResponse> {
         console.log("Creating category/subcategory with data:");
         for (let [key, value] of formData.entries()) {
             console.log(`${key}: ${value}`);
@@ -21,6 +28,7 @@ export const categoryService = {
         try {
             const response = await axiosInstance.post(CATEGORIES_PATH, formData);
             console.log("Category/Subcategory created:", response.data);
+            // Assuming the backend returns the created category directly or nested under 'category'
             return response.data.category || response.data;
         } catch (error: any) {
             console.error("Error creating category/subcategory in service:", error);
@@ -31,9 +39,9 @@ export const categoryService = {
     /**
      * Fetches a category or subcategory by its ID.
      * @param id The ID of the category or subcategory to fetch.
-     * @returns The fetched Category object.
+     * @returns The fetched ICategoryResponse object.
      */
-    async getCategoryById(id: string): Promise<Category> {
+    async getCategoryById(id: string): Promise<ICategoryResponse> {
         try {
             const response = await axiosInstance.get(`${CATEGORIES_PATH}/${id}`);
             console.log(`Fetched category/subcategory with ID ${id}:`, response.data);
@@ -49,9 +57,9 @@ export const categoryService = {
      * Commission fields should be omitted from formData if it's a subcategory.
      * @param id The ID of the category or subcategory to update.
      * @param formData The FormData object containing all updated data.
-     * @returns The updated Category object.
+     * @returns The updated ICategoryResponse object.
      */
-    async updateCategory(id: string, formData: FormData): Promise<Category> {
+    async updateCategory(id: string, formData: FormData): Promise<ICategoryResponse> {
         console.log(`Updating category/subcategory with ID ${id} and FormData:`);
         for (let [key, value] of formData.entries()) {
             console.log(`${key}: ${value}`);
@@ -68,17 +76,21 @@ export const categoryService = {
 
     /**
      * Fetches all top-level categories OR all subcategories of a specific parent.
-     * @param parentId Optional. If provided, fetches subcategories of that parent. If not, fetches top-level categories.
-     * @returns An array of Category objects.
+     * @param parentid Optional. If provided, fetches subcategories of that parent. If not, fetches top-level categories.
+     * @returns An array of ICategoryResponse objects.
      */
-    async getAllCategories(parentId?: string): Promise<Category[]> {
+    async getAllCategories(parentid?: string): Promise<ICategoryResponse[]> { // Changed from parentId to parentid
         try {
-            const params: { parentId?: string } = {};
-            if (parentId) {
-                params.parentId = parentId;
+            console.log('parenud', parentid); // Changed from parentId to parentid
+            const params: { parentid?: string } = {}; // Changed from parentId to parentid
+            if (parentid) { // Changed from parentId to parentid
+                params.parentid = parentid; // Changed from parentId to parentid
             }
+            console.log('find params:', params);
             const response = await axiosInstance.get(CATEGORIES_PATH, { params });
             console.log("Fetched categories/subcategories:", response.data);
+            console.log("Fetched categories/subcateasdasdfgories:", response.data.categories);
+            // Assuming the backend returns categories directly or nested under 'categories'
             return response.data.categories || response.data;
         } catch (error: any) {
             console.error("Error fetching categories/subcategories:", error);
@@ -86,18 +98,30 @@ export const categoryService = {
         }
     },
 
-    // Global commission rules are typically for the whole system, not individual categories.
-    // If they are specific to a 'main' category type, this might need re-evaluation.
-    // For now, keeping them separate from general category operations.
+    /**
+     * Fetches all top-level categories with their subcategory counts and associated commission rules.
+     * This is specifically for the CategoryCommissionManagement page.
+     * @returns An array of ICategoryResponse objects, each potentially including subCategoryCount and commissionRule.
+     */
+    // async getAllTopLevelCategoriesWithDetails(): Promise<ICategoryResponse[]> {
+    //     try {
+    //         const response = await axiosInstance.get(CATEGORIES_TOP_LEVEL_DETAILS_PATH);
+    //         console.log("Fetched top-level categories with details:", response.data);
+    //         return response.data.categories || response.data; // Adjust based on actual backend response structure
+    //     } catch (error: any) {
+    //         console.error("Error fetching top-level categories with details:", error);
+    //         throw error;
+    //     }
+    // },
 
     /**
      * Fetches the global commission rule.
-     * NOTE: This is likely for system-wide settings, not individual categories.
-     * @returns The global CommissionRule object.
+     * @returns The global ICommissionRuleResponse object.
      */
-    async getGlobalCommissionRule(): Promise<CommissionRule> {
+    async getGlobalCommissionRule(): Promise<ICommissionRuleResponse> {
         try {
-            const response = await axiosInstance.get(`${CATEGORIES_PATH}/global-commission`); // Adjust path if needed
+            // Updated path to be more explicit for global commission rule
+            const response = await axiosInstance.get(GLOBAL_COMMISSION_PATH);
             console.log("Fetched global commission rule:", response.data);
             return response.data;
         } catch (error: any) {
@@ -108,13 +132,18 @@ export const categoryService = {
 
     /**
      * Updates the global commission rule.
-     * NOTE: This is likely for system-wide settings, not individual categories.
-     * @param commissionRuleInput The new global commission rule details.
-     * @returns The updated CommissionRule object.
+     * @param globalCommission The new global commission percentage.
+     * @returns The updated ICommissionRuleResponse object.
      */
-    async updateGlobalCommission(commissionRuleInput: CommissionRuleInput): Promise<CommissionRule> {
+    async updateGlobalCommission(globalCommission: number): Promise<ICommissionRuleResponse> {
         try {
-            const response = await axiosInstance.put(`${CATEGORIES_PATH}/global-commission`, commissionRuleInput); // Adjust path if needed
+            // Create the ICommissionRuleInput object from the number
+            const commissionRuleInput: ICommissionRuleInput = {
+                globalCommission: globalCommission,
+                status: true, // Explicitly set status as it's now optional in ICommissionRuleInput based on backend type
+                // other fields like categoryid, flatFee, categoryCommission are not applicable here
+            };
+            const response = await axiosInstance.put(GLOBAL_COMMISSION_PATH, commissionRuleInput);
             console.log("Global commission rule updated:", response.data);
             return response.data;
         } catch (error: any) {
@@ -126,9 +155,9 @@ export const categoryService = {
     /**
      * Deletes a category or subcategory by its ID.
      * @param id The ID of the category or subcategory to delete.
-     * @returns The deleted Category object or a success confirmation.
+     * @returns The deleted ICategoryResponse object or a success confirmation.
      */
-    async deleteCategory(id: string): Promise<Category> {
+    async deleteCategory(id: string): Promise<ICategoryResponse> {
         try {
             const response = await axiosInstance.delete(`${CATEGORIES_PATH}/${id}`);
             console.log(`Category/Subcategory with ID ${id} deleted:`, response.data);

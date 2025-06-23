@@ -7,7 +7,8 @@ cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true, // Use HTTPS
+  secure: true,
+  timeout: 60000, // Use HTTPS
 });
 
 /**
@@ -20,7 +21,8 @@ export const uploadToCloudinary = async (filePath: string): Promise<string> => {
   try {
     const result = await cloudinary.uploader.upload(filePath, {
       folder: 'quickmate_images', // Optional: specific folder for category icons
-      transformation: [{ width: 200, height: 200, crop: "fill" }] // Example: resize image
+      transformation: [{ width: 200, height: 200, crop: "fill" }], // Example: resize image
+      timeout: 60000,
     });
 
     // Delete the local file after successful upload

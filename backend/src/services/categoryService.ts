@@ -212,6 +212,7 @@ export class CategoryService {
             throw new Error('Invalid category ID.');
         }
         const categoryDoc = await this.categoryRepository.findById(categoryId);
+        const subCategoryDoc = await this.categoryRepository.findAll({ parentId: new Types.ObjectId(categoryId) });
         if (!categoryDoc) {
             throw new Error('Category not found.');
         }
@@ -227,7 +228,8 @@ export class CategoryService {
 
         return {
             category: category,
-            commissionRule: commissionRule
+            commissionRule: commissionRule,
+
         };
     }
 
@@ -235,9 +237,7 @@ export class CategoryService {
      * Fetches all top-level categories, including their subcategory counts and commission details.
      * @returns An array of top-level categories with aggregated details.
      */
-    async getAllTopLevelCategoriesWithDetails(): Promise<
-        Array<ICategoryResponse> // Simplified return type as commissionRule is already in ICategoryResponse
-    > {
+    async getAllTopLevelCategoriesWithDetails(): Promise<Array<ICategoryResponse>> {
         // Find categories where parentId is null or undefined (top-level)
         const topLevelCategoryDocs = await this.categoryRepository.findAll({ parentId: null });
 

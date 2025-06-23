@@ -3,41 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Sidebar from '../../components/admin/sidebar';
 import Header from '../../components/admin/Header';
-import { categoryService } from '../../services/categoryService'; // Assuming you have a categoryService
-
-// Define interfaces for data
-// It's highly recommended to have these in a shared types file (e.g., src/types/category.ts)
-interface ICategoryDetail {
-    _id: string;
-    name: string;
-    description?: string;
-    iconUrl?: string;
-    status: boolean;
-    commissionRule?: { // Top-level category commission
-        commissionType: 'percentage' | 'flat_fee' | 'none';
-        percentage?: number;
-        flatFee?: number;
-    };
-    subCategories: ISubCategoryDetail[]; // Array of subcategories
-}
-
-interface ISubCategoryDetail {
-    _id: string;
-    name: string;
-    description?: string;
-    iconUrl?: string;
-    status: boolean;
-    // Subcategories typically don't have their own commission rules in this structure,
-    // they inherit from the parent or have services with their own rules.
-    // If they can have their own, add commissionRule here.
-}
-
+import { categoryService } from '../../services/categoryService';
+import { ICategoryResponse, ICommissionRuleResponse } from '../../types/category'; // Import shared types
 
 const CategoryDetailsPage: React.FC = () => {
     const { categoryId } = useParams<{ categoryId: string }>();
     const navigate = useNavigate();
 
-    const [categoryDetails, setCategoryDetails] = useState<ICategoryDetail | null>(null);
+    // Use ICategoryResponse directly as the type for categoryDetails state
+    const [categoryDetails, setCategoryDetails] = useState<ICategoryResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -52,10 +26,10 @@ const CategoryDetailsPage: React.FC = () => {
             setIsLoading(true);
             setError(null);
             try {
-                // Assuming getCategoryById fetches a category including its subcategories and commission
+                // getCategoryById returns ICategoryResponse directly
                 const response = await categoryService.getCategoryById(categoryId);
-                // Ensure response.category matches ICategoryDetail structure, adjust if needed
-                setCategoryDetails(response.category);
+                console.log("Fetched category details:", response);
+                setCategoryDetails(response); // Corrected: Use response directly, no .category
             } catch (err) {
                 console.error("Failed to fetch category details:", err);
                 setError("Failed to load category details. Please try again.");
@@ -66,10 +40,10 @@ const CategoryDetailsPage: React.FC = () => {
 
         fetchCategoryDetails();
     }, [categoryId]); // Refetch when categoryId changes
+    console.log('categoryDetails', categoryDetails);
 
     const handleEditSubCategory = (subcategoryId: string) => {
         // Navigate to the subcategory edit form.
-        // Assuming your subcategory edit route is /admin/categories/:parentId/subcategories/edit/:subcategoryId
         navigate(`/admin/categories/${categoryId}/subcategories/edit/${subcategoryId}`);
     };
 
@@ -78,13 +52,13 @@ const CategoryDetailsPage: React.FC = () => {
         // In a real app, you would dispatch an action or call a service to update the status in the backend.
         // After successful update, you'd likely refetch category details to update the UI.
         try {
-            // This is a placeholder. You'll need a specific API call for subcategory status toggle.
-            // Example: await categoryService.updateSubCategoryStatus(subcategoryId, !currentStatus);
-            // For now, let's just simulate UI update
-            if (categoryDetails) {
+            // Placeholder: Assuming an update method for subcategory status exists
+            // You might need a dedicated endpoint or update the category itself with the modified subcategory
+            // For now, simulating UI update
+            if (categoryDetails && categoryDetails.subCategories) {
                 setCategoryDetails(prevDetails => {
                     if (!prevDetails) return null;
-                    const updatedSubCategories = prevDetails.subCategories.map(sub =>
+                    const updatedSubCategories = (prevDetails.subCategories ?? []).map(sub =>
                         sub._id === subcategoryId ? { ...sub, status: !currentStatus } : sub
                     );
                     return { ...prevDetails, subCategories: updatedSubCategories };
@@ -146,7 +120,8 @@ const CategoryDetailsPage: React.FC = () => {
         );
     }
 
-    const { name, description, iconUrl, status, commissionRule, subCategories } = categoryDetails;
+    // Destructure properties from categoryDetails (now ICategoryResponse)
+    const { name, description, iconUrl, status, commissionStatus, commissionType, commissionValue, subCategories } = categoryDetails;
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -170,9 +145,9 @@ const CategoryDetailsPage: React.FC = () => {
                         {/* Category Overview */}
                         <section className="border-b border-gray-200 dark:border-gray-700 pb-6 mb-6">
                             <div className="flex items-center space-x-6">
-                                {iconUrl && (
+                                {iconUrl && ( // Changed from iconUrl to icon
                                     <img
-                                        src={iconUrl}
+                                        src={iconUrl} // Changed from iconUrl to icon
                                         alt={`${name} icon`}
                                         className="w-24 h-24 object-cover rounded-lg shadow-md"
                                     />
@@ -188,17 +163,17 @@ const CategoryDetailsPage: React.FC = () => {
                                         </span>
                                     </p>
                                     <p className="text-gray-600 dark:text-gray-400">
-                                        Top-Level Commission:
-                                        {commissionRule ? (
+                                        Category Commission:{' '}
+                                        {/* Adjusted logic to use ICommissionRuleResponse properties */}
+                                        {commissionStatus ? (
                                             <>
-                                                {commissionRule.commissionType === 'percentage' &&
-                                                    ` ${commissionRule.percentage}%`}
-                                                {commissionRule.commissionType === 'flat_fee' &&
-                                                    ` ₹${commissionRule.flatFee}`}
-                                                {commissionRule.commissionType === 'none' && ' None'}
+                                                {commissionType === 'percentage' ? (
+                                                    ` ${commissionValue}% (Percentage)`
+                                                ) : ( ` ₹${commissionValue} (Flat Fee)`)
+                                                }
                                             </>
                                         ) : (
-                                            ' Not Set'
+                                            ' Not Set' // If commissionRule itself is null/undefined
                                         )}
                                     </p>
                                 </div>
@@ -212,14 +187,15 @@ const CategoryDetailsPage: React.FC = () => {
                                     Subcategories
                                 </h2>
                                 <button
-                                    onClick={() => navigate(`/admin/categories/${categoryId}/subcategories/new`)}
+                                    onClick={() => navigate(`/admin/subcategories/new/${categoryId}`)} // Navigate to new subcategory form
                                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
                                     Add New Subcategory
                                 </button>
                             </div>
 
-                            {subCategories.length === 0 ? (
+                            {/* Check if subCategories exists and is not empty */}
+                            {(!subCategories || subCategories.length === 0) ? (
                                 <p className="text-gray-600 dark:text-gray-400">No subcategories found for this category.</p>
                             ) : (
                                 <div className="overflow-x-auto">
@@ -237,8 +213,8 @@ const CategoryDetailsPage: React.FC = () => {
                                             {subCategories.map((sub) => (
                                                 <tr key={sub._id}>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        {sub.iconUrl ? (
-                                                            <img src={sub.iconUrl} alt={`${sub.name} icon`} className="w-12 h-12 object-cover rounded-md" />
+                                                        {sub.iconUrl ? ( // Changed from iconUrl to icon
+                                                            <img src={sub.iconUrl} alt={`${sub.name} icon`} className="w-12 h-12 object-cover rounded-md" /> // Changed from iconUrl to icon
                                                         ) : (
                                                             <div className="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded-md flex items-center justify-center text-gray-500 text-xs">No Img</div>
                                                         )}
@@ -267,7 +243,7 @@ const CategoryDetailsPage: React.FC = () => {
                                                                 Edit
                                                             </button>
                                                             <button
-                                                                onClick={() => handleToggleSubCategoryStatus(sub._id, sub.status)}
+                                                                onClick={() => handleToggleSubCategoryStatus(sub._id, sub.status ?? false)}
                                                                 className={`${
                                                                     sub.status
                                                                         ? 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300'

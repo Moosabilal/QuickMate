@@ -22,7 +22,7 @@ app.use(cors());
 app.use(helmet()); // Security headers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
-app.use(rateLimiter);
+// app.use(rateLimiter);
 
 // Serve static files from 'uploads' directory (where Multer saves temporarily)
 // IMPORTANT: In production, consider serving static files via Nginx/CDN or directly from Cloudinary

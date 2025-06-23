@@ -1,35 +1,16 @@
-// src/pages/admin/subCategoryForm.tsx (or ServiceForm.tsx)
+// src/pages/admin/subCategoryForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import Sidebar from '../../components/admin/sidebar';
 import Header from '../../components/admin/Header';
-import { categoryService } from '../../services/categoryService'; // Import your shared service
+import { categoryService } from '../../services/categoryService';
+// Import the types directly from your types file
+import { ICategoryResponse, ICategoryInput, ISubcategoryFormFetchData } from '../../types/category';
 
-// It's highly recommended to define these in a shared `src/types/category.ts` file
-// and import them here for consistency across your frontend and backend.
-// For now, I'm defining them directly here for the fix.
-
-// Interface for form input (what you construct to send to the backend)
-interface SubCategoryFormInput {
-    _id?: string; // Optional for new subcategories
-    name: string;
-    description?: string | null; // <-- Changed to allow string, null, or undefined
-    iconUrl?: string | null;
-    status: boolean;
-    parentId?: string; // Crucial for subcategories
-}
-
-// Interface for fetched data (what your backend actually returns for a subcategory by ID)
-interface ISubcategoryFetchData {
-    _id: string;
-    name: string;
-    description?: string | null; // <-- Changed to allow string, null, or undefined
-    iconUrl?: string | null;
-    status: boolean;
-    parentId?: string | null; // This will be present for subcategories
-    // No commissionRule or commission-related fields expected here for subcategories
-}
-
+// You can remove the local definitions of SubCategoryFormInput and ISubcategoryFetchData
+// as you should now rely on the types from src/types/category.ts.
+// However, if SubCategoryFormInput is specifically for *this form's structure before FormData*,
+// you might keep it, but ensure it aligns with ICategoryInput where possible.
 
 const SubCategoryForm: React.FC = () => {
     const { parentId, subcategoryId } = useParams<{ parentId: string; subcategoryId?: string }>();
@@ -37,15 +18,15 @@ const SubCategoryForm: React.FC = () => {
 
     // Form states - NO COMMISSION STATES FOR SUB CATEGORIES
     const [name, setName] = useState('');
-    const [description, setDescription] = useState<string>(''); // Initialize as empty string
+    const [description, setDescription] = useState<string>('');
     const [icon, setIcon] = useState<File | null>(null);
     const [iconPreview, setIconPreview] = useState<string | null>(null);
     const [status, setStatus] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
-    const [isFormLoading, setIsFormLoading] = useState(true); // For initial data fetch
+    const [isFormLoading, setIsFormLoading] = useState(true);
     const [fetchError, setFetchError] = useState<string | null>(null);
 
-    const isEditing = !!subcategoryId; // Determine if it's editing a subcategory
+    const isEditing = !!subcategoryId;
 
     // Effect to fetch initial data for editing a subcategory
     useEffect(() => {
@@ -54,18 +35,14 @@ const SubCategoryForm: React.FC = () => {
                 setIsFormLoading(true);
                 setFetchError(null);
                 try {
-                    // Use getCategoryById to fetch the subcategory data
-                    // The backend's categoryService.getCategoryById returns ICategoryResponse,
-                    // which contains `description?: string | null;`
-                    const response = await categoryService.getCategoryById(subcategoryId);
-                    const fetchedData: ISubcategoryFetchData = response.category; // Assuming response.category is the data
+                    // response is directly ICategoryResponse, not { category: ICategoryResponse }
+                    const response: ICategoryResponse = await categoryService.getCategoryById(subcategoryId);
 
-                    setName(fetchedData.name);
-                    // Ensure description is always a string for the textarea value
-                    setDescription(fetchedData.description ?? ''); // Use nullish coalescing to default to empty string if null/undefined
-                    setIconPreview(fetchedData.iconUrl || null);
-                    setStatus(fetchedData.status);
-                    // No commission-related states to set for subcategories
+                    // Use ICategoryResponse directly as the fetched data structure
+                    setName(response.name);
+                    setDescription(response.description ?? ''); // Use nullish coalescing for safety
+                    setIconPreview(response.icon || null); // Use 'icon' from the type
+                    setStatus(response.status ?? true);
                 } catch (error) {
                     console.error('Error fetching subcategory for edit:', error);
                     setFetchError('Failed to load subcategory data. Please try again.');
@@ -84,7 +61,7 @@ const SubCategoryForm: React.FC = () => {
         };
 
         fetchSubcategoryData();
-    }, [isEditing, subcategoryId]); // parentId is not a direct dependency for fetching existing subcategory data
+    }, [isEditing, subcategoryId]);
 
     const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -120,49 +97,38 @@ const SubCategoryForm: React.FC = () => {
 
         const formData = new FormData();
         formData.append('name', name);
-        // Ensure description is always a string when appending to FormData, even if empty
         formData.append('description', description);
         formData.append('status', String(status));
 
-        // IMPORTANT: DO NOT APPEND COMMISSION FIELDS FOR SUBCATEGORIES
-
         if (icon) {
-            formData.append('categoryIcon', icon);
+            formData.append('categoryIcon', icon); // Assuming backend expects 'categoryIcon' for file upload
         } else if (isEditing && iconPreview === null) {
             // If editing and icon was removed, signal backend to clear it
-            formData.append('iconUrl', 'null'); // Backend should interpret 'null' string as actual null
+            formData.append('icon', 'null'); // Backend should interpret 'null' string as actual null
         } else if (isEditing && iconPreview) {
-            // No new file, but there was an existing icon; keep it (Cloudinary URL)
-            formData.append('iconUrl', iconPreview); // Send existing URL back
+            // No new file, but there was an existing icon; keep its URL
+            formData.append('icon', iconPreview); // Send existing URL back
         }
+        console.log('parentId:', parentId);
 
-        // THIS IS THE KEY DIFFERENCE: Add parentId for new subcategories
+        // Use 'parentid' as per src/types/category.ts
         if (!isEditing && parentId) {
             formData.append('parentId', parentId);
         }
-        // If editing, the parentId is typically immutable unless your backend allows re-parenting,
-        // in which case you might fetch and re-send it, or add a field for it.
-        // For simplicity, we assume parentId is set only on creation.
-        // If you did want to allow re-parenting for subcategories, you'd add:
-        // if (isEditing && parentId) { formData.append('parentId', parentId); }
-        // BUT BE CAREFUL with circular dependencies if you implement that.
 
         try {
             if (isEditing && subcategoryId) {
                 console.log('Updating Subcategory with FormData:', Object.fromEntries(formData));
-                // Assuming updateCategory expects FormData or a plain object conforming to Partial<ICategoryInput>
                 await categoryService.updateCategory(subcategoryId, formData);
                 console.log("Subcategory updated successfully!");
             } else {
-                // Ensure parentId is truly available for new subcategories
                 if (!parentId) {
                     throw new Error("Parent category ID is missing for new subcategory creation.");
                 }
                 console.log('Adding New Subcategory with FormData:', Object.fromEntries(formData));
-                await categoryService.createCategory(formData); // createCategory also accepts FormData
+                await categoryService.createCategory(formData);
                 console.log("Subcategory created successfully!");
             }
-            // Navigate back to the parent category's view page or a subcategory list page
             navigate(`/admin/categories/view/${parentId || ''}`);
         } catch (error) {
             console.error('Error saving subcategory:', error);
@@ -170,7 +136,6 @@ const SubCategoryForm: React.FC = () => {
         } finally {
             setIsLoading(false);
             if (iconPreview && icon instanceof File) {
-                // Clean up the object URL created for the preview
                 URL.revokeObjectURL(iconPreview);
             }
         }
@@ -311,12 +276,10 @@ const SubCategoryForm: React.FC = () => {
                                 </div>
                             </section>
 
-                            {/* COMMISSION SETTINGS SECTION REMOVED FOR SUB CATEGORIES */}
-
                             <div className="flex justify-between items-center pt-6">
                                 <button
                                     type="button"
-                                    onClick={() => navigate(`/admin/categories/view/${parentId || ''}`)} // Go back to parent category details
+                                    onClick={() => navigate(`/admin/categories/view/${parentId || ''}`)}
                                     className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-200"
                                     disabled={isLoading}
                                 >
