@@ -1,8 +1,5 @@
-// src/controllers/CategoryController.ts
 import { Request, Response, NextFunction } from 'express';
 import { CategoryService } from '../services/categoryService';
-// Assuming ICategoryInput now covers both category and subcategory (parentId included)
-// ICategoryFormCombinedData will still be used for frontend mapping for top-level categories
 import { ICategoryInput, ICategoryFormCombinedData, ICategory } from '../types/category';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 import { validationResult } from 'express-validator';
@@ -14,13 +11,11 @@ interface AuthRequest extends Request {
   file?: Express.Multer.File;
 }
 
-// Renamed and simplified for internal controller use
-// This type should reflect what CategoryService methods expect for commission rule status (boolean).
 type CommissionRuleInputController = {
   flatFee?: number;
   categoryCommission?: number;
   status?: boolean;
-  removeRule?: boolean; // Flag to indicate rule removal (e.g., commissionType 'none')
+  removeRule?: boolean; 
 };
 
 export class CategoryController {
@@ -30,11 +25,6 @@ export class CategoryController {
     this.categoryService = new CategoryService();
   }
 
-  /**
-   * @route POST /api/categories
-   * @desc Create a new category (main or sub) with optional icon. Commission applies only to main categories.
-   * @access Admin
-   */
   createCategory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -55,40 +45,37 @@ export class CategoryController {
 
       if (iconFile) {
         iconUrl = await uploadToCloudinary(iconFile.path);
-      } else if (req.body.iconUrl === '') { // Frontend explicitly sent empty string to clear
+      } else if (req.body.iconUrl === '') { 
         iconUrl = null;
       }
-      // If iconUrl is undefined, it means no file was uploaded and no explicit clear was requested.
 
       const {
         name,
         description,
         status,
-        parentId, // Will be present for subcategories, null/undefined for main categories
+        parentId,
         commissionType,
         commissionValue,
         commissionStatus,
       } = req.body;
 
-      // Construct base category input
       const categoryInput: ICategoryInput = {
         name,
         description,
-        status: status, // `express-validator`'s .toBoolean() should handle this
+        status: status, 
         iconUrl: iconUrl,
-        parentId: parentId === '' ? null : parentId ?? null, // Ensure null if empty string or undefined
+        parentId: parentId === '' ? null : parentId ?? null, 
       };
 
       let commissionRuleInputForService: CommissionRuleInputController | undefined = undefined;
 
-      // Only process commission if it's a top-level category (no parentId)
       if (!categoryInput.parentId) {
         const parsedCommissionValue = commissionValue !== '' ? Number(commissionValue) : undefined;
 
         if (commissionType === 'none') {
           commissionRuleInputForService = {
             removeRule: true,
-            status: commissionStatus, // This status might be false if 'none' was selected
+            status: commissionStatus, 
           };
         } else if (commissionType && parsedCommissionValue !== undefined) {
           if (commissionType === 'percentage') {
@@ -109,7 +96,7 @@ export class CategoryController {
 
       const { category, commissionRule } = await this.categoryService.createCategory(
         categoryInput,
-        commissionRuleInputForService // This will be undefined for subcategories
+        commissionRuleInputForService 
       );
 
       res.status(201).json({
@@ -378,6 +365,7 @@ export class CategoryController {
             status: cat.status ?? false,
             parentId: cat.parentId ? cat.parentId.toString() : null, // Should be null for top-level
             subCategoriesCount: (cat as any).subCategoryCount || 0, // Use 'as any' to access property if present
+            subCategories: (cat as any).subCategories || [], // Use 'as any' to access property if present
             commissionType,
             commissionValue,
             commissionStatus,

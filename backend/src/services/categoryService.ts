@@ -240,6 +240,7 @@ export class CategoryService {
     async getAllTopLevelCategoriesWithDetails(): Promise<Array<ICategoryResponse>> {
         // Find categories where parentId is null or undefined (top-level)
         const topLevelCategoryDocs = await this.categoryRepository.findAll({ parentId: null });
+        const subCategories = await this.categoryRepository.findAllSubcategories({});
 
         const resultPromises = topLevelCategoryDocs.map(async (catDoc) => {
             const category = catDoc.toJSON() as unknown as ICategoryResponse; // Convert Mongoose Doc to clean JSON
@@ -254,6 +255,7 @@ export class CategoryService {
                 parentId: category.parentId || null, // Ensure parentId is explicitly null if missing or undefined
                 subCategoryCount,
                 commissionRule,
+                subCategories: subCategories.map((subCat: any) => subCat.toJSON() as unknown as ICategoryResponse)
             };
             return finalCategory;
         });

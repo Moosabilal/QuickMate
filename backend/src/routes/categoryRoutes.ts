@@ -110,7 +110,7 @@ router.put('/:id', isAdmin, upload.single('categoryIcon'), categoryValidation, c
 router.get('/:id', isAdmin, categoryController.getCategoryById);
 
 // This route will now handle fetching all top-level categories OR subcategories by parentId.
-router.get('/', isAdmin, [
+router.get('/', [
     query('parentId').optional().isMongoId().withMessage('Invalid parentId query parameter.')
 ], categoryController.getAllCategories); // Renamed from getAllCategoriesWithDetails in controller
 
@@ -122,6 +122,9 @@ router.put('/global-commission', isAdmin, [
     body('globalCommission')
         .isFloat({ min: 0, max: 100 }).withMessage('Global commission must be a number between 0 and 100.')
 ], categoryController.updateGlobalCommission);
+
+
+
 
 
 export default router;

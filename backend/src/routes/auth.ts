@@ -10,7 +10,3 @@ router.post('/login', (req, res) => authController.login(req, res));
 export default router;
 
 
-// example
-// router.get('/admin', authMiddleware(['Admin']), (req: AuthRequest, res) => {
-//   res.json({ message: 'Admin route accessed', user: req.user });
-// });

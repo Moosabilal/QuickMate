@@ -69,6 +69,11 @@ export class CategoryRepository {
         return Category.find(queryFilter).exec();
     }
 
+    async findAllSubcategories(p0: {}): Promise<ICategory[]> {
+        // Find documents where 'parentid' field exists and is not null
+        return Category.find({ parentId: { $ne: null, $exists: true } }).exec();
+    }
+
     /**
      * Updates an existing category by ID.
      * @param id The ID of the category to update.

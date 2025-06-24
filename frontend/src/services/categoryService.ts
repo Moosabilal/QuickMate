@@ -87,7 +87,7 @@ export const categoryService = {
                 params.parentid = parentid; // Changed from parentId to parentid
             }
             console.log('find params:', params);
-            const response = await axiosInstance.get(CATEGORIES_PATH, { params });
+            const response = await axiosInstance.get(CATEGORIES_PATH);
             console.log("Fetched categories/subcategories:", response.data);
             console.log("Fetched categories/subcateasdasdfgories:", response.data.categories);
             // Assuming the backend returns categories directly or nested under 'categories'
